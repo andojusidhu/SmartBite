@@ -17,41 +17,52 @@ connectDB();
 
 const app = express();
 
-// Middleware
+// =========================
+// CORS
+// =========================
+
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://YOUR-FRONTEND.netlify.app",
+      "https://smart-bite-pi.vercel.app",
     ],
     credentials: true,
   })
 );
+
+// Parse JSON
 app.use(express.json());
 
-// Routes
+// =========================
+// ROUTES
+// =========================
+
 app.use("/api/auth", authRoutes);
 
-app.use(
-  "/api/restaurants",
-  restaurantRoutes
-);
-app.use(
-  "/api/foods",
-  foodRoutes
-);
+app.use("/api/restaurants", restaurantRoutes);
+
+app.use("/api/foods", foodRoutes);
+
 app.use("/api/orders", orderRoutes);
 
 app.use("/api/recommendations", recommendationRoutes);
 
 app.use("/api/ai", aiRoutes);
 
-// Test route
+// =========================
+// TEST ROUTE
+// =========================
+
 app.get("/", (req, res) => {
   res.json({
     message: "SmartBite Backend API is running 🚀",
   });
 });
+
+// =========================
+// SERVER
+// =========================
 
 const PORT = process.env.PORT || 5000;
 
