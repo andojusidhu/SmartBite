@@ -7,6 +7,8 @@ const authRoutes = require("./routes/authRoutes");
 const restaurantRoutes = require("./routes/restaurantRoutes");
 const foodRoutes = require("./routes/foodRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const recommendationRoutes = require("./routes/recommendationRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 dotenv.config();
 
@@ -31,6 +33,11 @@ app.use(
   foodRoutes
 );
 app.use("/api/orders", orderRoutes);
+
+app.use("/api/recommendations", recommendationRoutes);
+
+app.use("/api/ai", aiRoutes);
+
 // Test route
 app.get("/", (req, res) => {
   res.json({

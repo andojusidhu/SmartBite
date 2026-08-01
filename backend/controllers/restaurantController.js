@@ -3,9 +3,8 @@ const Restaurant = require("../models/Restaurant");
 // Get all restaurants
 const getRestaurants = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find().sort({
-      createdAt: -1,
-    });
+    const restaurants = await Restaurant.find()
+      .sort({ rating: -1 });
 
     res.status(200).json({
       success: true,
@@ -21,7 +20,6 @@ const getRestaurants = async (req, res) => {
     });
   }
 };
-
 
 // Get single restaurant
 const getRestaurantById = async (req, res) => {
@@ -42,10 +40,7 @@ const getRestaurantById = async (req, res) => {
       restaurant,
     });
   } catch (error) {
-    console.error(
-      "Get Restaurant Error:",
-      error
-    );
+    console.error("Get Restaurant Error:", error);
 
     res.status(500).json({
       success: false,
@@ -54,69 +49,7 @@ const getRestaurantById = async (req, res) => {
   }
 };
 
-
-// Create restaurant
-const createRestaurant = async (req, res) => {
-  try {
-    const {
-      name,
-      image,
-      cuisine,
-      rating,
-      deliveryTime,
-      deliveryFee,
-      location,
-      isOpen,
-    } = req.body;
-
-    // Validate required fields
-    if (
-      !name ||
-      !image ||
-      !cuisine ||
-      !location
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Name, image, cuisine and location are required",
-      });
-    }
-
-    const restaurant =
-      await Restaurant.create({
-        name,
-        image,
-        cuisine,
-        rating,
-        deliveryTime,
-        deliveryFee,
-        location,
-        isOpen,
-      });
-
-    res.status(201).json({
-      success: true,
-      message:
-        "Restaurant created successfully",
-      restaurant,
-    });
-  } catch (error) {
-    console.error(
-      "Create Restaurant Error:",
-      error
-    );
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to create restaurant",
-    });
-  }
-};
-
-
 module.exports = {
   getRestaurants,
   getRestaurantById,
-  createRestaurant,
 };
