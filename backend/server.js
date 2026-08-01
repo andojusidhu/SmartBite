@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 
 const connectDB = require("./config/db");
+
 const authRoutes = require("./routes/authRoutes");
 const restaurantRoutes = require("./routes/restaurantRoutes");
 const foodRoutes = require("./routes/foodRoutes");
@@ -12,7 +13,6 @@ const aiRoutes = require("./routes/aiRoutes");
 
 dotenv.config();
 
-// Connect to MongoDB Atlas
 connectDB();
 
 const app = express();
@@ -21,17 +21,36 @@ const app = express();
 // CORS
 // =========================
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://smart-bite-pi.vercel.app",
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://smart-bite-pi.vercel.app",
-    ],
+    origin: function (origin, callback) {
+      // Allow requests without origin
+      // Example: Postman, curl
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(
+        new Error("Not allowed by CORS")
+      );
+    },
     credentials: true,
   })
 );
 
-// Parse JSON
+// =========================
+// MIDDLEWARE
+// =========================
+
 app.use(express.json());
 
 // =========================
@@ -46,7 +65,10 @@ app.use("/api/foods", foodRoutes);
 
 app.use("/api/orders", orderRoutes);
 
-app.use("/api/recommendations", recommendationRoutes);
+app.use(
+  "/api/recommendations",
+  recommendationRoutes
+);
 
 app.use("/api/ai", aiRoutes);
 
