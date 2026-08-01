@@ -122,7 +122,7 @@ const Checkout = () => {
       console.log("Order Data:", orderData);
 
       const response = await fetch(
-        "http://localhost:5000/api/orders",
+        " https://smartbite-backend-ctwv.onrender.com/api/orders",
         {
           method: "POST",
 

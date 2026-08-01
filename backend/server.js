@@ -18,7 +18,15 @@ connectDB();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://YOUR-FRONTEND.netlify.app",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Routes

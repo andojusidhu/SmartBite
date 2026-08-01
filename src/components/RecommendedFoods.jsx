@@ -32,7 +32,7 @@ const RecommendedFoods = () => {
       // get popular foods
       if (!token) {
         const response = await fetch(
-          "http://localhost:5000/api/foods"
+          " https://smartbite-backend-ctwv.onrender.com/api/foods"
         );
 
         const data = await response.json();
@@ -60,7 +60,7 @@ const RecommendedFoods = () => {
       // Logged-in user
       // Get personalized recommendations
       const response = await fetch(
-        "http://localhost:5000/api/recommendations",
+        " https://smartbite-backend-ctwv.onrender.com/api/recommendations",
         {
           method: "GET",
           headers: {

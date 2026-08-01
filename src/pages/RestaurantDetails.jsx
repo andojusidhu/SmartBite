@@ -40,7 +40,7 @@ const RestaurantDetails = () => {
       setError("");
 
       const response = await fetch(
-        `http://localhost:5000/api/foods/restaurant/${id}`
+        ` https://smartbite-backend-ctwv.onrender.com/api/foods/restaurant/${id}`
       );
 
       const data = await response.json();
