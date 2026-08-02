@@ -33,7 +33,7 @@ const OrderDetails = () => {
       }
 
       const response = await fetch(
-        ` https://smartbite-backend-ctwv.onrender.com/api/orders/${id}`,
+        `https://smartbite-backend-ctwv.onrender.com/api/orders/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

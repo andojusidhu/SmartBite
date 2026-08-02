@@ -58,20 +58,23 @@ const AIAssistant = () => {
     setRecommendations([]);
 
     try {
-      const response = await fetch(
-        " https://smartbite-backend-ctwv.onrender.com/api/ai/recommend",
-        {
-          method: "POST",
+const token = localStorage.getItem("token");
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+const response = await fetch(
+  "https://smartbite-backend-ctwv.onrender.com/api/ai/recommend",
+  {
+    method: "POST",
 
-          body: JSON.stringify({
-            query: searchQuery.trim(),
-          }),
-        }
-      );
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+
+    body: JSON.stringify({
+      query: searchQuery.trim(),
+    }),
+  }
+);
 
       const data = await response.json();
 

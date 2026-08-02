@@ -73,7 +73,7 @@ const Home = () => {
       setRestaurantError("");
 
       const response = await fetch(
-        " https://smartbite-backend-ctwv.onrender.com/api/restaurants"
+        "https://smartbite-backend-ctwv.onrender.com/api/restaurants"
       );
 
       const data = await response.json();

@@ -21,9 +21,9 @@ const protect = async (req, res, next) => {
       process.env.JWT_SECRET
     );
 
-    const user = await User.findById(decoded.userId).select(
-      "-password"
-    );
+    const user = await User.findById(
+      decoded.userId
+    ).select("-password");
 
     if (!user) {
       return res.status(401).json({
@@ -34,8 +34,12 @@ const protect = async (req, res, next) => {
     req.user = user;
 
     next();
+
   } catch (error) {
-    console.error("Auth Error:", error.message);
+    console.error(
+      "Auth Error:",
+      error.message
+    );
 
     return res.status(401).json({
       message: "Invalid or expired token",

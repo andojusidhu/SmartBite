@@ -9,7 +9,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const API_URL = " https://smartbite-backend-ctwv.onrender.com/api/restaurants";
+const API_URL = "https://smartbite-backend-ctwv.onrender.com/api/restaurants";
 
 const Restaurants = () => {
   const [restaurants, setRestaurants] = useState([]);

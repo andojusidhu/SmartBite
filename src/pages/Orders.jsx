@@ -30,7 +30,7 @@ const Orders = () => {
       }
 
       const response = await fetch(
-        " https://smartbite-backend-ctwv.onrender.com/api/orders/my-orders",
+        "https://smartbite-backend-ctwv.onrender.com/api/orders/my-orders",
         {
           method: "GET",
           headers: {

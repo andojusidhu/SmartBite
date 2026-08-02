@@ -36,7 +36,7 @@ const Login = () => {
       setLoading(true);
 
       const response = await fetch(
-        " https://smartbite-backend-ctwv.onrender.com/api/auth/login",
+        "https://smartbite-backend-ctwv.onrender.com/api/auth/login",
         {
           method: "POST",
           headers: {
@@ -54,10 +54,10 @@ const Login = () => {
       }
 
       // Save JWT
-      localStorage.setItem(
-        "token",
-        data.token
-      );
+      // localStorage.setItem(
+      //   "token",
+      //   data.token
+      // );
 
       // Save user
       localStorage.setItem("token", data.token);

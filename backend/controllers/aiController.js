@@ -1,4 +1,13 @@
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 const Food = require("../models/Food");
+const Order = require("../models/Order");
+const User = require("../models/User");
+
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY
+);
 
 const aiRecommend = async (req, res) => {
   try {
@@ -15,460 +24,288 @@ const aiRecommend = async (req, res) => {
       });
     }
 
-    const searchText = query.toLowerCase().trim();
-
     // =========================
-    // 2. DETECT BUDGET
+    // 2. GET USER INFORMATION
     // =========================
 
-    let maxPrice = null;
+    let user = null;
+    let orders = [];
 
-    const priceMatch = searchText.match(
-      /(?:under|below|within|less than|max|upto|up to)\s*₹?\s*(\d+)/
-    );
+    // If user is logged in
+    // req.user depends on your auth middleware
 
-    if (priceMatch) {
-      maxPrice = Number(priceMatch[1]);
+    if (req.user?._id) {
+      user = await User.findById(
+        req.user._id
+      ).lean();
+
+      orders = await Order.find({
+        user: req.user._id,
+      })
+        .populate("items.food")
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean();
     }
 
     // =========================
-    // 3. DETECT FOOD PREFERENCES
+    // 3. CREATE USER HISTORY
     // =========================
 
-    const preferences = {
-      chicken: false,
-      mutton: false,
-      fish: false,
-      prawn: false,
-      paneer: false,
-      biryani: false,
-      pizza: false,
-      burger: false,
-      spicy: false,
-      sweet: false,
-      dessert: false,
-      healthy: false,
-      protein: false,
-      vegetarian: false,
-      nonVegetarian: false,
-    };
+    const orderHistory = [];
+
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
+        if (item.food) {
+          orderHistory.push({
+            name: item.food.name,
+            cuisine: item.food.cuisine,
+            category: item.food.category,
+            tags: item.food.tags,
+            price: item.food.price,
+            isVeg: item.food.isVeg,
+          });
+        }
+      });
+    });
 
     // =========================
-    // MEAT / FOOD DETECTION
+    // 4. GET AVAILABLE FOODS
     // =========================
 
-    if (searchText.includes("chicken")) {
-      preferences.chicken = true;
-    }
-
-    if (
-      searchText.includes("mutton") ||
-      searchText.includes("lamb")
-    ) {
-      preferences.mutton = true;
-    }
-
-    if (
-      searchText.includes("fish") ||
-      searchText.includes("seafood")
-    ) {
-      preferences.fish = true;
-    }
-
-    if (
-      searchText.includes("prawn") ||
-      searchText.includes("prawns") ||
-      searchText.includes("shrimp")
-    ) {
-      preferences.prawn = true;
-    }
-
-    if (searchText.includes("paneer")) {
-      preferences.paneer = true;
-    }
-
-    // =========================
-    // FOOD TYPE DETECTION
-    // =========================
-
-    if (searchText.includes("biryani")) {
-      preferences.biryani = true;
-    }
-
-    if (searchText.includes("pizza")) {
-      preferences.pizza = true;
-    }
-
-    if (searchText.includes("burger")) {
-      preferences.burger = true;
-    }
-
-    // =========================
-    // TASTE DETECTION
-    // =========================
-
-    if (
-      searchText.includes("spicy") ||
-      searchText.includes("hot") ||
-      searchText.includes("masala")
-    ) {
-      preferences.spicy = true;
-    }
-
-    if (
-      searchText.includes("sweet") ||
-      searchText.includes("sweets")
-    ) {
-      preferences.sweet = true;
-    }
-
-    if (
-      searchText.includes("dessert") ||
-      searchText.includes("desserts")
-    ) {
-      preferences.dessert = true;
-    }
-
-    // =========================
-    // HEALTH DETECTION
-    // =========================
-
-    if (
-      searchText.includes("healthy") ||
-      searchText.includes("health") ||
-      searchText.includes("low calorie") ||
-      searchText.includes("low-calorie")
-    ) {
-      preferences.healthy = true;
-    }
-
-    if (
-      searchText.includes("protein") ||
-      searchText.includes("high protein") ||
-      searchText.includes("high-protein")
-    ) {
-      preferences.protein = true;
-    }
-
-    // =========================
-    // DIET DETECTION
-    // =========================
-
-    if (
-      searchText.includes("vegetarian") ||
-      searchText.includes("veg")
-    ) {
-      preferences.vegetarian = true;
-    }
-
-    if (
-      searchText.includes("non veg") ||
-      searchText.includes("non-veg") ||
-      searchText.includes("nonvegetarian")
-    ) {
-      preferences.nonVegetarian = true;
-    }
-
-    // =========================
-    // 4. DETECT CUISINES
-    // =========================
-
-    const cuisines = [
-      "indian",
-      "italian",
-      "chinese",
-      "mexican",
-      "korean",
-      "continental",
-      "south indian",
-      "north indian",
-      "hyderabadi",
-    ];
-
-    const matchedCuisines = cuisines.filter((cuisine) =>
-      searchText.includes(cuisine)
-    );
-
-    // =========================
-    // 5. BUILD DATABASE QUERY
-    // =========================
-
-    const mongoQuery = {
+    const foods = await Food.find({
       isAvailable: true,
-    };
-
-    // Budget
-    if (maxPrice !== null) {
-      mongoQuery.price = {
-        $lte: maxPrice,
-      };
-    }
-
-    // Vegetarian
-    if (preferences.vegetarian) {
-      mongoQuery.isVeg = true;
-    }
-
-    // Non Vegetarian
-    if (preferences.nonVegetarian) {
-      mongoQuery.isVeg = false;
-    }
-
-    // =========================
-    // 6. GET FOODS
-    // =========================
-
-    let foods = await Food.find(mongoQuery)
-      .populate("restaurant", "name")
+    })
+      .populate(
+        "restaurant",
+        "name location rating deliveryTime"
+      )
       .lean();
 
     // =========================
-    // 7. SCORE FOODS
+    // 5. CREATE FOOD DATA
     // =========================
 
-    foods = foods.map((food) => {
-      let score = 0;
+    const foodData = foods.map((food) => ({
+      id: food._id.toString(),
 
-      const foodName = (
-        food.name || ""
-      ).toLowerCase();
+      name: food.name,
 
-      const foodDescription = (
-        food.description || ""
-      ).toLowerCase();
+      description: food.description,
 
-      const foodCuisine = (
-        food.cuisine || ""
-      ).toLowerCase();
+      price: food.price,
 
-      const foodCategory = (
-        food.category || ""
-      ).toLowerCase();
+      category: food.category,
 
-      const foodTags = (
-        food.tags || []
-      ).map((tag) =>
-        String(tag).toLowerCase()
+      cuisine: food.cuisine,
+
+      tags: food.tags,
+
+      isVeg: food.isVeg,
+
+      rating: food.rating,
+
+      restaurantId:
+        food.restaurant?._id?.toString(),
+
+      restaurantName:
+        food.restaurant?.name || "",
+
+      location:
+        food.restaurant?.location || "",
+
+      deliveryTime:
+        food.restaurant?.deliveryTime || "",
+    }));
+
+    // =========================
+    // 6. USER PROFILE
+    // =========================
+
+    const userProfile = user
+      ? {
+          name: user.name,
+
+          location: user.location,
+
+          favoriteCuisines:
+            user.favoriteCuisines,
+
+          dietaryPreference:
+            user.dietaryPreference,
+
+          healthGoal:
+            user.healthGoal,
+        }
+      : {
+          name: null,
+          location: null,
+          favoriteCuisines: [],
+          dietaryPreference: "",
+          healthGoal: "",
+        };
+
+    // =========================
+    // 7. INITIALIZE GEMINI
+    // =========================
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+    });
+
+    // =========================
+    // 8. LLM PROMPT
+    // =========================
+
+    const prompt = `
+You are SmartBite AI, an intelligent food recommendation assistant.
+
+Your job is to understand the user's natural language food request and recommend the best food items from the provided database.
+
+IMPORTANT RULES:
+
+1. Only recommend food items that exist in the provided database.
+2. Never invent food items.
+3. Consider the user's current request.
+4. Consider the user's previous order history.
+5. Consider the user's favorite cuisines.
+6. Consider dietary preferences.
+7. Consider health goals.
+8. Consider budget if mentioned.
+9. Consider food tags, cuisine, category, rating, and price.
+10. Return a maximum of 10 recommendations.
+11. Rank recommendations from best match to lowest match.
+12. If the user asks for vegetarian food, prioritize isVeg=true.
+13. If the user asks for non-vegetarian food, prioritize isVeg=false.
+14. Use previous orders to understand the user's taste.
+15. If there are no exact matches, return the closest available options.
+
+USER REQUEST:
+
+${query}
+
+USER PROFILE:
+
+${JSON.stringify(userProfile)}
+
+USER ORDER HISTORY:
+
+${JSON.stringify(orderHistory)}
+
+AVAILABLE FOOD DATABASE:
+
+${JSON.stringify(foodData)}
+
+Return ONLY valid JSON.
+
+The JSON format must be:
+
+{
+  "message": "A short natural language explanation of the recommendations",
+  "recommendations": [
+    {
+      "id": "food_id",
+      "reason": "Why this food is recommended",
+      "score": 95
+    }
+  ]
+}
+
+The score must be between 0 and 100.
+`;
+
+    // =========================
+    // 9. CALL GEMINI
+    // =========================
+
+    const result = await model.generateContent(
+      prompt
+    );
+
+    const response =
+      result.response.text();
+
+    console.log(
+      "Gemini Raw Response:",
+      response
+    );
+
+    // =========================
+    // 10. CLEAN AI RESPONSE
+    // =========================
+
+    let aiResult;
+
+    try {
+      const cleanedResponse = response
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
+      aiResult =
+        JSON.parse(cleanedResponse);
+    } catch (error) {
+      console.error(
+        "AI JSON Parse Error:",
+        error
       );
 
-      const searchableText = [
-        foodName,
-        foodDescription,
-        foodCuisine,
-        foodCategory,
-        ...foodTags,
-      ].join(" ");
-
-      // =========================
-      // FOOD MATCHING
-      // =========================
-
-      if (
-        preferences.chicken &&
-        searchableText.includes("chicken")
-      ) {
-        score += 10;
-      }
-
-      if (
-        preferences.mutton &&
-        searchableText.includes("mutton")
-      ) {
-        score += 10;
-      }
-
-      if (
-        preferences.fish &&
-        searchableText.includes("fish")
-      ) {
-        score += 10;
-      }
-
-      if (
-        preferences.prawn &&
-        (
-          searchableText.includes("prawn") ||
-          searchableText.includes("shrimp")
-        )
-      ) {
-        score += 10;
-      }
-
-      if (
-        preferences.paneer &&
-        searchableText.includes("paneer")
-      ) {
-        score += 10;
-      }
-
-      // =========================
-      // FOOD TYPE
-      // =========================
-
-      if (
-        preferences.biryani &&
-        searchableText.includes("biryani")
-      ) {
-        score += 10;
-      }
-
-      if (
-        preferences.pizza &&
-        searchableText.includes("pizza")
-      ) {
-        score += 10;
-      }
-
-      if (
-        preferences.burger &&
-        searchableText.includes("burger")
-      ) {
-        score += 10;
-      }
-
-      // =========================
-      // SPICY
-      // =========================
-
-      if (preferences.spicy) {
-        if (
-          searchableText.includes("spicy") ||
-          searchableText.includes("hot") ||
-          searchableText.includes("masala")
-        ) {
-          score += 8;
-        }
-
-        if (foodTags.includes("spicy")) {
-          score += 5;
-        }
-      }
-
-      // =========================
-      // SWEET / DESSERT
-      // =========================
-
-      if (
-        preferences.sweet &&
-        (
-          searchableText.includes("sweet") ||
-          searchableText.includes("dessert")
-        )
-      ) {
-        score += 8;
-      }
-
-      if (
-        preferences.dessert &&
-        (
-          searchableText.includes("dessert") ||
-          foodCategory.includes("dessert")
-        )
-      ) {
-        score += 10;
-      }
-
-      // =========================
-      // HEALTHY
-      // =========================
-
-      if (preferences.healthy) {
-        if (
-          searchableText.includes("healthy") ||
-          searchableText.includes("salad") ||
-          searchableText.includes("grilled") ||
-          searchableText.includes("low calorie")
-        ) {
-          score += 8;
-        }
-
-        if (foodTags.includes("healthy")) {
-          score += 5;
-        }
-      }
-
-      // =========================
-      // PROTEIN
-      // =========================
-
-      if (preferences.protein) {
-        if (
-          searchableText.includes("chicken") ||
-          searchableText.includes("fish") ||
-          searchableText.includes("mutton") ||
-          searchableText.includes("prawn") ||
-          searchableText.includes("paneer") ||
-          searchableText.includes("egg")
-        ) {
-          score += 8;
-        }
-
-        if (
-          foodTags.includes("protein") ||
-          foodTags.includes("high-protein")
-        ) {
-          score += 5;
-        }
-      }
-
-      // =========================
-      // CUISINE
-      // =========================
-
-      matchedCuisines.forEach((cuisine) => {
-        if (foodCuisine.includes(cuisine)) {
-          score += 10;
-        }
+      return res.status(500).json({
+        success: false,
+        message:
+          "AI returned an invalid response",
       });
-
-      // =========================
-      // RATING BONUS
-      // =========================
-
-      score += (food.rating || 0) * 2;
-
-      return {
-        ...food,
-        aiScore: score,
-      };
-    });
-
-    // =========================
-    // 8. SORT BY AI SCORE
-    // =========================
-
-    foods.sort((a, b) => {
-      return b.aiScore - a.aiScore;
-    });
-
-    // =========================
-    // 9. REMOVE ZERO MATCHES
-    // =========================
-
-    const hasPreferences =
-      Object.values(preferences).some(
-        (value) => value === true
-      ) ||
-      matchedCuisines.length > 0;
-
-    if (hasPreferences) {
-      const matchedFoods = foods.filter(
-        (food) => food.aiScore > 8
-      );
-
-      if (matchedFoods.length > 0) {
-        foods = matchedFoods;
-      }
     }
 
     // =========================
-    // 10. LIMIT RESULTS
+    // 11. MAP AI RESULTS
     // =========================
 
-    foods = foods.slice(0, 10);
+    const foodMap = new Map();
+
+    foods.forEach((food) => {
+      foodMap.set(
+        food._id.toString(),
+        food
+      );
+    });
+
+    const recommendations =
+      aiResult.recommendations
+        .map((item) => {
+          const food =
+            foodMap.get(item.id);
+
+          if (!food) {
+            return null;
+          }
+
+          return {
+            ...food,
+
+            aiScore:
+              item.score,
+
+            aiReason:
+              item.reason,
+
+            restaurantName:
+              food.restaurant?.name ||
+              "SmartBite Restaurant",
+
+            restaurantId:
+              food.restaurant?._id,
+
+            deliveryTime:
+              food.restaurant
+                ?.deliveryTime ||
+              "30-40 min",
+          };
+        })
+        .filter(Boolean);
 
     // =========================
-    // 11. RESPONSE
+    // 12. SEND RESPONSE
     // =========================
 
     res.status(200).json({
@@ -476,14 +313,13 @@ const aiRecommend = async (req, res) => {
 
       query,
 
-      detectedBudget: maxPrice,
+      message:
+        aiResult.message ||
+        "Here are my recommendations for you.",
 
-      preferences,
-
-      matchedCuisines,
-
-      recommendations: foods,
+      recommendations,
     });
+
   } catch (error) {
     console.error(
       "AI Recommendation Error:",
@@ -492,8 +328,15 @@ const aiRecommend = async (req, res) => {
 
     res.status(500).json({
       success: false,
+
       message:
         "Failed to process AI recommendation",
+
+      error:
+        process.env.NODE_ENV ===
+        "development"
+          ? error.message
+          : undefined,
     });
   }
 };

@@ -49,7 +49,7 @@ const Profile = () => {
       }
 
       const response = await fetch(
-        " https://smartbite-backend-ctwv.onrender.com/api/auth/profile",
+        "https://smartbite-backend-ctwv.onrender.com/api/auth/profile",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -108,7 +108,7 @@ const Profile = () => {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        " https://smartbite-backend-ctwv.onrender.com/api/auth/profile",
+        "https://smartbite-backend-ctwv.onrender.com/api/auth/profile",
         {
           method: "PUT",
 

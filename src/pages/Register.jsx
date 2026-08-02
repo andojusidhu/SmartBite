@@ -46,7 +46,7 @@ const Register = () => {
       setLoading(true);
 
       const response = await fetch(
-        " https://smartbite-backend-ctwv.onrender.com/api/auth/register",
+        "https://smartbite-backend-ctwv.onrender.com/api/auth/register",
         {
           method: "POST",
           headers: {
