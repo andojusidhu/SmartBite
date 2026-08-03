@@ -10,6 +10,7 @@ import {
   LogOut,
   Edit,
   Save,
+  Clock,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -18,12 +19,20 @@ const Profile = () => {
 
   const [user, setUser] = useState(null);
 
+  // =========================
+  // ORDERS STATE
+  // =========================
+
+  const [orders, setOrders] = useState([]);
+
   const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
 
   const [error, setError] = useState("");
+  const [ordersError, setOrdersError] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -34,10 +43,18 @@ const Profile = () => {
     healthGoal: "",
   });
 
-  // Get Profile
+  // =========================
+  // LOAD PROFILE + ORDERS
+  // =========================
+
   useEffect(() => {
     fetchProfile();
+    fetchOrders();
   }, []);
+
+  // =========================
+  // GET PROFILE
+  // =========================
 
   const fetchProfile = async () => {
     try {
@@ -81,7 +98,7 @@ const Profile = () => {
           data.user.healthGoal || "",
       });
     } catch (error) {
-      console.error(error);
+      console.error("Profile Error:", error);
 
       setError(
         "Unable to load profile."
@@ -91,7 +108,80 @@ const Profile = () => {
     }
   };
 
-  // Handle Input
+  // =========================
+  // GET USER ORDERS
+  // =========================
+
+  const fetchOrders = async () => {
+    try {
+      setOrdersLoading(true);
+      setOrdersError("");
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      console.log("Fetching user orders...");
+
+      const response = await fetch(
+        "https://smartbite-backend-ctwv.onrender.com/api/orders/my-orders",
+        {
+          method: "GET",
+
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      console.log(
+        "Orders API Response:",
+        data
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to fetch orders"
+        );
+      }
+
+      // =========================
+      // HANDLE DIFFERENT RESPONSE FORMATS
+      // =========================
+
+      const fetchedOrders =
+        data.orders ||
+        data.data ||
+        [];
+
+      setOrders(fetchedOrders);
+
+    } catch (error) {
+      console.error(
+        "Fetch Orders Error:",
+        error
+      );
+
+      setOrdersError(
+        "Unable to load recent orders."
+      );
+
+      setOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  // =========================
+  // HANDLE INPUT
+  // =========================
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -99,7 +189,10 @@ const Profile = () => {
     });
   };
 
-  // Update Profile
+  // =========================
+  // UPDATE PROFILE
+  // =========================
+
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -126,7 +219,7 @@ const Profile = () => {
       if (!response.ok) {
         setError(
           data.message ||
-          "Failed to update profile"
+            "Failed to update profile"
         );
 
         return;
@@ -152,13 +245,20 @@ const Profile = () => {
     }
   };
 
-  // Logout
+  // =========================
+  // LOGOUT
+  // =========================
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
 
     navigate("/login");
   };
+
+  // =========================
+  // LOADING
+  // =========================
 
   if (loading) {
     return (
@@ -179,7 +279,10 @@ const Profile = () => {
 
       <main className="mx-auto max-w-5xl">
 
-        {/* Profile Header */}
+        {/* =========================
+            PROFILE HEADER
+        ========================= */}
+
         <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
 
           <div className="h-32 bg-gradient-to-r from-orange-500 to-red-500" />
@@ -191,7 +294,9 @@ const Profile = () => {
               <div className="flex items-end gap-4">
 
                 <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-orange-100 text-orange-500 shadow-md">
+
                   <User size={42} />
+
                 </div>
 
                 <div className="pb-1">
@@ -252,17 +357,24 @@ const Profile = () => {
 
         </div>
 
-        {/* Error */}
+        {/* =========================
+            PROFILE ERROR
+        ========================= */}
+
         {error && (
           <div className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
             {error}
           </div>
         )}
 
-        {/* Profile Information */}
+        {/* =========================
+            PROFILE INFORMATION
+        ========================= */}
+
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
 
-          {/* Personal Information */}
+          {/* PERSONAL INFORMATION */}
+
           <div className="rounded-2xl bg-white p-6 shadow-sm lg:col-span-2">
 
             <h2 className="text-xl font-bold text-gray-900">
@@ -271,7 +383,8 @@ const Profile = () => {
 
             <div className="mt-6 grid gap-5 sm:grid-cols-2">
 
-              {/* Name */}
+              {/* NAME */}
+
               <div className="rounded-xl bg-gray-50 p-4">
 
                 <div className="flex items-center gap-3">
@@ -302,7 +415,8 @@ const Profile = () => {
 
               </div>
 
-              {/* Email */}
+              {/* EMAIL */}
+
               <div className="rounded-xl bg-gray-50 p-4">
 
                 <div className="flex items-center gap-3">
@@ -324,7 +438,8 @@ const Profile = () => {
 
               </div>
 
-              {/* Phone */}
+              {/* PHONE */}
+
               <div className="rounded-xl bg-gray-50 p-4">
 
                 <div className="flex items-center gap-3">
@@ -355,7 +470,8 @@ const Profile = () => {
 
               </div>
 
-              {/* Location */}
+              {/* LOCATION */}
+
               <div className="rounded-xl bg-gray-50 p-4">
 
                 <div className="flex items-center gap-3">
@@ -392,13 +508,18 @@ const Profile = () => {
 
           </div>
 
-          {/* Food Preferences */}
+          {/* =========================
+              FOOD PREFERENCES
+          ========================= */}
+
           <div className="rounded-2xl bg-white p-6 shadow-sm">
 
             <div className="flex items-center gap-3">
 
               <div className="rounded-xl bg-orange-100 p-3 text-orange-500">
+
                 <Heart size={21} />
+
               </div>
 
               <h2 className="text-xl font-bold text-gray-900">
@@ -407,7 +528,8 @@ const Profile = () => {
 
             </div>
 
-            {/* Dietary Preference */}
+            {/* DIETARY */}
+
             <div className="mt-6">
 
               <p className="text-sm font-semibold text-gray-700">
@@ -423,6 +545,7 @@ const Profile = () => {
                   onChange={handleChange}
                   className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-3 outline-none focus:border-orange-500"
                 >
+
                   <option value="">
                     Select Preference
                   </option>
@@ -438,19 +561,23 @@ const Profile = () => {
                   <option value="Vegan">
                     Vegan
                   </option>
+
                 </select>
               ) : (
                 <div className="mt-3 flex items-center gap-2 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700">
+
                   <Utensils size={17} />
 
                   {user.dietaryPreference ||
                     "Not provided"}
+
                 </div>
               )}
 
             </div>
 
-            {/* Health Goal */}
+            {/* HEALTH GOAL */}
+
             <div className="mt-6">
 
               <p className="text-sm font-semibold text-gray-700">
@@ -464,6 +591,7 @@ const Profile = () => {
                   onChange={handleChange}
                   className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-3 outline-none focus:border-orange-500"
                 >
+
                   <option value="">
                     Select Goal
                   </option>
@@ -479,11 +607,14 @@ const Profile = () => {
                   <option value="Weight Management">
                     Weight Management
                   </option>
+
                 </select>
               ) : (
                 <div className="mt-3 rounded-xl bg-blue-50 p-3 text-sm font-medium text-blue-700">
+
                   {user.healthGoal ||
                     "Not provided"}
+
                 </div>
               )}
 
@@ -493,13 +624,18 @@ const Profile = () => {
 
         </div>
 
-        {/* Order History */}
+        {/* =========================
+            RECENT ORDERS
+        ========================= */}
+
         <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
 
           <div className="flex items-center gap-3">
 
             <div className="rounded-xl bg-orange-100 p-3 text-orange-500">
+
               <ShoppingBag size={21} />
+
             </div>
 
             <div>
@@ -516,22 +652,180 @@ const Profile = () => {
 
           </div>
 
-          <div className="mt-6 rounded-xl border border-dashed border-gray-200 p-8 text-center">
+          {/* ORDERS LOADING */}
 
-            <ShoppingBag
-              size={35}
-              className="mx-auto text-gray-300"
-            />
+          {ordersLoading && (
+            <div className="mt-6 rounded-xl bg-orange-50 p-8 text-center">
 
-            <p className="mt-3 font-semibold text-gray-700">
-              No recent orders
-            </p>
+              <p className="font-semibold text-orange-500">
+                Loading recent orders...
+              </p>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Your order history will appear here.
-            </p>
+            </div>
+          )}
 
-          </div>
+          {/* ORDERS ERROR */}
+
+          {!ordersLoading &&
+            ordersError && (
+              <div className="mt-6 rounded-xl bg-red-50 p-5 text-center">
+
+                <p className="font-medium text-red-600">
+                  {ordersError}
+                </p>
+
+                <button
+                  onClick={fetchOrders}
+                  className="mt-3 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Try Again
+                </button>
+
+              </div>
+            )}
+
+          {/* NO ORDERS */}
+
+          {!ordersLoading &&
+            !ordersError &&
+            orders.length === 0 && (
+              <div className="mt-6 rounded-xl border border-dashed border-gray-200 p-8 text-center">
+
+                <ShoppingBag
+                  size={35}
+                  className="mx-auto text-gray-300"
+                />
+
+                <p className="mt-3 font-semibold text-gray-700">
+                  No recent orders
+                </p>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Your order history will appear here.
+                </p>
+
+              </div>
+            )}
+
+          {/* ORDERS LIST */}
+
+          {!ordersLoading &&
+            orders.length > 0 && (
+
+              <div className="mt-6 space-y-4">
+
+                {orders
+                  .slice(0, 5)
+                  .map((order) => (
+
+                    <div
+                      key={order._id}
+                      className="rounded-xl border border-gray-100 bg-gray-50 p-4"
+                    >
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+                        <div>
+
+                          <p className="font-bold text-gray-900">
+                            Order #
+                            {order._id
+                              ?.slice(-6)
+                              .toUpperCase()}
+                          </p>
+
+                          <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+
+                            <Clock size={13} />
+
+                            {order.createdAt
+                              ? new Date(
+                                  order.createdAt
+                                ).toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  }
+                                )
+                              : "Recent order"}
+
+                          </p>
+
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4">
+
+                          <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-600">
+                            {order.status ||
+                              "Placed"}
+                          </span>
+
+                          <span className="font-bold text-gray-900">
+                            ₹
+                            {order.totalAmount ||
+                              order.totalPrice ||
+                              0}
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                      {/* ORDER ITEMS */}
+
+                      {order.items &&
+                        order.items.length > 0 && (
+
+                          <div className="mt-4 border-t border-gray-200 pt-3">
+
+                            <div className="flex flex-wrap gap-2">
+
+                              {order.items
+                                .slice(0, 4)
+                                .map(
+                                  (
+                                    item,
+                                    index
+                                  ) => {
+
+                                    const food =
+                                      item.food;
+
+                                    return (
+                                      <span
+                                        key={
+                                          item._id ||
+                                          index
+                                        }
+                                        className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600"
+                                      >
+                                        {food?.name ||
+                                          item.name ||
+                                          "Food Item"}
+
+                                        {item.quantity
+                                          ? ` × ${item.quantity}`
+                                          : ""}
+                                      </span>
+                                    );
+                                  }
+                                )}
+
+                            </div>
+
+                          </div>
+
+                        )}
+
+                    </div>
+
+                  ))}
+
+              </div>
+
+            )}
 
         </div>
 
