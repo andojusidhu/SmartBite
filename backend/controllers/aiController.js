@@ -40,9 +40,6 @@ const aiRecommend = async (req, res) => {
     let user = null;
     let orders = [];
 
-    // authMiddleware sets:
-    // req.user = user
-
     if (req.user?._id) {
       console.log(
         "Logged in User ID:",
@@ -319,7 +316,6 @@ Return exactly this JSON structure:
       let cleanedResponse =
         response.trim();
 
-      // Remove Markdown code fences
       cleanedResponse =
         cleanedResponse
           .replace(/^```json/i, "")
@@ -346,11 +342,7 @@ Return exactly this JSON structure:
         success: false,
         message:
           "AI returned an invalid response",
-        error:
-          process.env.NODE_ENV ===
-          "development"
-            ? parseError.message
-            : undefined,
+        error: parseError.message,
       });
     }
 
@@ -504,7 +496,7 @@ Return exactly this JSON structure:
       message:
         "Failed to process AI recommendation",
 
-      // Shows actual error for debugging
+      // Show actual error for debugging
       error: error.message,
     });
   }
