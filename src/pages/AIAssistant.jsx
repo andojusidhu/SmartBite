@@ -743,7 +743,7 @@ const AIAssistant = () => {
                           {food.deliveryTime ||
                             30}
 
-                          min
+                          {/* min */}
 
                         </span>
 
