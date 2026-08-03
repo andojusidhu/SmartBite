@@ -85,12 +85,7 @@ const Navbar = () => {
         {/* Desktop Actions */}
         <div className="hidden items-center gap-4 md:flex">
 
-          {/* Search */}
-          <button
-            className="rounded-full p-2 text-gray-700 transition hover:bg-orange-50 hover:text-orange-500"
-          >
-            <Search size={21} />
-          </button>
+
 
 
           {/* Cart */}

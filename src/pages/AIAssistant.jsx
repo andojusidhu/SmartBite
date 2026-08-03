@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -23,11 +24,19 @@ import { useCart } from "../context/CartContext";
 const AIAssistant = () => {
   const { addToCart } = useCart();
 
-  const [searchParams] = useSearchParams();
+  const [searchParams] =
+    useSearchParams();
 
-  // Get query from Home Search / Category
+  // =========================
+  // GET QUERY FROM URL
+  // =========================
+
   const urlQuery =
     searchParams.get("query") || "";
+
+  // =========================
+  // STATE
+  // =========================
 
   const [query, setQuery] =
     useState(urlQuery);
@@ -42,46 +51,122 @@ const AIAssistant = () => {
     useState("");
 
   // =========================
+  // REFS
+  // =========================
+
+  // Prevent duplicate automatic
+  // API calls caused by React StrictMode
+  const autoSearchRef =
+    useRef("");
+
+  // Prevent multiple API requests
+  // at the same time
+  const requestInProgressRef =
+    useRef(false);
+
+  // =========================
   // AI SEARCH FUNCTION
   // =========================
 
-  const searchFood = async (searchQuery) => {
-    if (!searchQuery || !searchQuery.trim()) {
-      setMessage(
-        "Please tell me what you want to eat."
+  const searchFood = async (
+    searchQuery
+  ) => {
+
+    // =========================
+    // PREVENT DUPLICATE REQUEST
+    // =========================
+
+    if (
+      requestInProgressRef.current
+    ) {
+      console.log(
+        "AI request already in progress..."
       );
+
       return;
     }
 
+    // =========================
+    // VALIDATE QUERY
+    // =========================
+
+    if (
+      !searchQuery ||
+      !searchQuery.trim()
+    ) {
+      setMessage(
+        "Please tell me what you want to eat."
+      );
+
+      return;
+    }
+
+    // =========================
+    // START REQUEST
+    // =========================
+
+    requestInProgressRef.current =
+      true;
+
     setLoading(true);
+
     setMessage("");
+
     setRecommendations([]);
 
     try {
-const token = localStorage.getItem("token");
 
-const response = await fetch(
-  "https://smartbite-backend-ctwv.onrender.com/api/ai/recommend",
-  {
-    method: "POST",
+      // =========================
+      // GET JWT TOKEN
+      // =========================
 
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+      const token =
+        localStorage.getItem(
+          "token"
+        );
 
-    body: JSON.stringify({
-      query: searchQuery.trim(),
-    }),
-  }
-);
+      // =========================
+      // CALL BACKEND
+      // =========================
 
-      const data = await response.json();
+      const response =
+        await fetch(
+          "https://smartbite-backend-ctwv.onrender.com/api/ai/recommend",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              ...(token && {
+                Authorization:
+                  `Bearer ${token}`,
+              }),
+            },
+
+            body: JSON.stringify({
+              query:
+                searchQuery.trim(),
+            }),
+          }
+        );
+
+      // =========================
+      // PARSE RESPONSE
+      // =========================
+
+      const data =
+        await response.json();
 
       console.log(
         "AI Response:",
         data
       );
+
+      // =========================
+      // HANDLE BACKEND ERROR
+      // =========================
 
       if (!response.ok) {
         throw new Error(
@@ -90,34 +175,65 @@ const response = await fetch(
         );
       }
 
+      // =========================
+      // GET RECOMMENDATIONS
+      // =========================
+
       const foods =
         data.recommendations || [];
 
-      setRecommendations(foods);
+      setRecommendations(
+        foods
+      );
+
+      // =========================
+      // SET AI MESSAGE
+      // =========================
 
       if (foods.length > 0) {
+
         setMessage(
-          `I found ${foods.length} food option${
-            foods.length > 1
-              ? "s"
-              : ""
-          } for you.`
+          data.message ||
+            `I found ${foods.length} food option${
+              foods.length > 1
+                ? "s"
+                : ""
+            } for you.`
         );
+
       } else {
+
         setMessage(
-          "Sorry, I couldn't find matching food. Try a different search."
+          data.message ||
+            "Sorry, I couldn't find matching food. Try a different search."
         );
       }
+
     } catch (error) {
+
+      // =========================
+      // ERROR HANDLING
+      // =========================
+
       console.error(
         "AI Assistant Error:",
         error
       );
 
       setMessage(
-        "Something went wrong. Please check if your backend server is running."
+        error.message ||
+          "Something went wrong. Please check if your backend server is running."
       );
+
     } finally {
+
+      // =========================
+      // FINISH REQUEST
+      // =========================
+
+      requestInProgressRef.current =
+        false;
+
       setLoading(false);
     }
   };
@@ -127,40 +243,73 @@ const response = await fetch(
   // =========================
 
   useEffect(() => {
-    if (urlQuery) {
-      setQuery(urlQuery);
 
-      // Automatically search
-      searchFood(urlQuery);
+    if (!urlQuery) {
+      return;
     }
+
+    setQuery(
+      urlQuery
+    );
+
+    // =========================
+    // PREVENT DUPLICATE SEARCH
+    // =========================
+
+    if (
+      autoSearchRef.current ===
+      urlQuery
+    ) {
+      return;
+    }
+
+    autoSearchRef.current =
+      urlQuery;
+
+    searchFood(
+      urlQuery
+    );
+
   }, [urlQuery]);
 
   // =========================
   // FORM SUBMIT
   // =========================
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (
+    e
+  ) => {
+
     e.preventDefault();
 
-    await searchFood(query);
+    await searchFood(
+      query
+    );
   };
 
   // =========================
   // ADD TO CART
   // =========================
 
-  const handleAddToCart = (food) => {
-    const cartFood = {
-      id: food._id,
+  const handleAddToCart = (
+    food
+  ) => {
 
-      name: food.name,
+    const cartFood = {
+      id:
+        food._id,
+
+      name:
+        food.name,
 
       description:
         food.description,
 
-      image: food.image,
+      image:
+        food.image,
 
-      price: food.price,
+      price:
+        food.price,
 
       category:
         food.category,
@@ -184,7 +333,9 @@ const response = await fetch(
         "SmartBite Restaurant",
     };
 
-    addToCart(cartFood);
+    addToCart(
+      cartFood
+    );
 
     setMessage(
       `${food.name} has been added to your cart.`
@@ -195,24 +346,40 @@ const response = await fetch(
   // QUICK SEARCH
   // =========================
 
-  const handleQuickSearch = (text) => {
-    setQuery(text);
+  const handleQuickSearch = (
+    text
+  ) => {
 
-    // Immediately search
-    searchFood(text);
+    setQuery(
+      text
+    );
+
+    searchFood(
+      text
+    );
   };
+
+  // =========================
+  // RENDER
+  // =========================
 
   return (
     <div className="min-h-screen bg-orange-50/40">
 
-      {/* ================= HERO ================= */}
+      {/* =========================
+          HERO
+      ========================= */}
 
       <section className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-600">
 
         <div className="mx-auto max-w-4xl px-4 py-16 text-center text-white md:py-20">
 
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur">
-            <Sparkles size={32} />
+
+            <Sparkles
+              size={32}
+            />
+
           </div>
 
           <h1 className="mt-6 text-4xl font-extrabold md:text-5xl">
@@ -227,18 +394,26 @@ const response = await fetch(
 
       </section>
 
-      {/* ================= MAIN ================= */}
+      {/* =========================
+          MAIN
+      ========================= */}
 
       <main className="mx-auto max-w-5xl px-4 py-10 md:px-8">
 
-        {/* ================= SEARCH CARD ================= */}
+        {/* =========================
+            SEARCH CARD
+        ========================= */}
 
         <div className="rounded-3xl bg-white p-6 shadow-lg md:p-8">
 
           <div className="flex items-start gap-4">
 
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-500">
-              <Sparkles size={24} />
+
+              <Sparkles
+                size={24}
+              />
+
             </div>
 
             <div>
@@ -248,22 +423,28 @@ const response = await fetch(
               </h2>
 
               <p className="mt-1 text-sm text-gray-500">
+
                 Try something like:
 
                 <span className="font-medium text-orange-500">
                   {" "}
                   I want spicy chicken under ₹300
                 </span>
+
               </p>
 
             </div>
 
           </div>
 
-          {/* ================= SEARCH FORM ================= */}
+          {/* =========================
+              SEARCH FORM
+          ========================= */}
 
           <form
-            onSubmit={handleSubmit}
+            onSubmit={
+              handleSubmit
+            }
             className="mt-6"
           >
 
@@ -273,7 +454,9 @@ const response = await fetch(
                 type="text"
                 value={query}
                 onChange={(e) =>
-                  setQuery(e.target.value)
+                  setQuery(
+                    e.target.value
+                  )
                 }
                 placeholder="I'm hungry, I want something spicy under ₹300..."
                 className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 text-gray-900 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
@@ -281,21 +464,29 @@ const response = await fetch(
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={
+                  loading
+                }
                 className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-7 py-4 font-bold text-white transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
               >
 
                 {loading ? (
                   <>
+
                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
 
                     Finding...
+
                   </>
                 ) : (
                   <>
-                    <Send size={18} />
+
+                    <Send
+                      size={18}
+                    />
 
                     Find Food
+
                   </>
                 )}
 
@@ -305,56 +496,80 @@ const response = await fetch(
 
           </form>
 
-          {/* ================= QUICK SUGGESTIONS ================= */}
+          {/* =========================
+              QUICK SUGGESTIONS
+          ========================= */}
 
           <div className="mt-5 flex flex-wrap gap-3">
 
             <button
+              disabled={
+                loading
+              }
               onClick={() =>
                 handleQuickSearch(
                   "I want something spicy under ₹300"
                 )
               }
-              className="flex items-center gap-2 rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-600 transition hover:bg-orange-100"
+              className="flex items-center gap-2 rounded-full bg-orange-50 px-4 py-2 text-sm font-medium text-orange-600 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Utensils size={16} />
+
+              <Utensils
+                size={16}
+              />
 
               Spicy under ₹300
+
             </button>
 
             <button
+              disabled={
+                loading
+              }
               onClick={() =>
                 handleQuickSearch(
                   "I want a healthy high protein meal"
                 )
               }
-              className="flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 text-sm font-medium text-green-600 transition hover:bg-green-100"
+              className="flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 text-sm font-medium text-green-600 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <HeartPulse size={16} />
+
+              <HeartPulse
+                size={16}
+              />
 
               Healthy & Protein
+
             </button>
 
             <button
+              disabled={
+                loading
+              }
               onClick={() =>
                 handleQuickSearch(
                   "I want chicken biryani"
                 )
               }
-              className="flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
+              className="flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
+
               🍗
 
               Chicken Biryani
+
             </button>
 
           </div>
 
         </div>
 
-        {/* ================= AI MESSAGE ================= */}
+        {/* =========================
+            AI MESSAGE
+        ========================= */}
 
         {message && (
+
           <div className="mt-8 flex items-center gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-5">
 
             <Sparkles
@@ -367,11 +582,15 @@ const response = await fetch(
             </p>
 
           </div>
+
         )}
 
-        {/* ================= RESULTS ================= */}
+        {/* =========================
+            RESULTS
+        ========================= */}
 
-        {recommendations.length > 0 && (
+        {recommendations.length >
+          0 && (
 
           <section className="mt-10">
 
@@ -387,7 +606,9 @@ const response = await fetch(
 
             </div>
 
-            {/* 2 columns on mobile */}
+            {/* =========================
+                FOOD GRID
+            ========================= */}
 
             <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
 
@@ -395,19 +616,29 @@ const response = await fetch(
                 (food) => (
 
                   <div
-                    key={food._id}
+                    key={
+                      food._id
+                    }
                     className="overflow-hidden rounded-2xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
                   >
 
-                    {/* IMAGE */}
+                    {/* =========================
+                        IMAGE
+                    ========================= */}
 
                     <div className="relative h-36 sm:h-52">
 
                       <img
-                        src={food.image}
-                        alt={food.name}
+                        src={
+                          food.image
+                        }
+                        alt={
+                          food.name
+                        }
                         className="h-full w-full object-cover"
                       />
+
+                      {/* RATING */}
 
                       <div className="absolute left-2 top-2 flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-xs font-bold shadow sm:left-3 sm:top-3 sm:text-sm">
 
@@ -421,13 +652,19 @@ const response = await fetch(
 
                       </div>
 
+                      {/* AI PICK */}
+
                       <div className="absolute right-2 top-2 rounded-lg bg-orange-500 px-2 py-1 text-[10px] font-bold text-white sm:right-3 sm:top-3 sm:px-3 sm:text-xs">
+
                         AI Pick
+
                       </div>
 
                     </div>
 
-                    {/* CONTENT */}
+                    {/* =========================
+                        CONTENT
+                    ========================= */}
 
                     <div className="p-3 sm:p-5">
 
@@ -435,42 +672,100 @@ const response = await fetch(
                         {food.name}
                       </h3>
 
+                      {/* RESTAURANT */}
+
                       <p className="mt-1 truncate text-xs text-gray-500 sm:text-sm">
+
                         {food.restaurant?.name ||
                           food.restaurantName ||
                           "SmartBite Restaurant"}
+
                       </p>
 
+                      {/* DESCRIPTION */}
+
                       {food.description && (
+
                         <p className="mt-2 hidden line-clamp-2 text-sm text-gray-500 sm:block">
-                          {food.description}
+
+                          {
+                            food.description
+                          }
+
                         </p>
+
                       )}
 
-                      {/* INFO */}
+                      {/* =========================
+                          AI REASON
+                      ========================= */}
+
+                      {food.aiReason && (
+
+                        <p className="mt-2 line-clamp-2 text-xs italic text-orange-600 sm:text-sm">
+
+                          ✨{" "}
+                          {
+                            food.aiReason
+                          }
+
+                        </p>
+
+                      )}
+
+                      {/* =========================
+                          AI SCORE
+                      ========================= */}
+
+                      {food.aiScore !==
+                        undefined && (
+
+                        <div className="mt-2 text-xs font-semibold text-green-600">
+
+                          {food.aiScore}% AI Match
+
+                        </div>
+
+                      )}
+
+                      {/* =========================
+                          INFO
+                      ========================= */}
 
                       <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 sm:mt-4 sm:gap-4 sm:text-sm">
 
                         <span className="flex items-center gap-1">
-                          <Clock size={13} />
+
+                          <Clock
+                            size={13}
+                          />
 
                           {food.deliveryTime ||
                             30}
+
                           min
+
                         </span>
 
                         <span className="flex items-center gap-1">
-                          <MapPin size={13} />
+
+                          <MapPin
+                            size={13}
+                          />
 
                           Nearby
+
                         </span>
 
                       </div>
 
-                      {/* TAGS */}
+                      {/* =========================
+                          TAGS
+                      ========================= */}
 
                       {food.tags &&
-                        food.tags.length > 0 && (
+                        food.tags.length >
+                          0 && (
 
                           <div className="mt-3 hidden flex-wrap gap-2 sm:flex">
 
@@ -484,7 +779,9 @@ const response = await fetch(
                                   key={`${tag}-${index}`}
                                   className="rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-600"
                                 >
+
                                   {tag}
+
                                 </span>
 
                               )
@@ -494,12 +791,19 @@ const response = await fetch(
 
                         )}
 
-                      {/* BOTTOM */}
+                      {/* =========================
+                          BOTTOM
+                      ========================= */}
 
                       <div className="mt-4 flex items-center justify-between sm:mt-5">
 
                         <span className="text-base font-bold text-gray-900 sm:text-xl">
-                          ₹{food.price}
+
+                          ₹
+                          {
+                            food.price
+                          }
+
                         </span>
 
                         <button

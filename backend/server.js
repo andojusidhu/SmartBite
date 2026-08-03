@@ -1,5 +1,16 @@
-const express = require("express");
+// =========================
+// LOAD ENVIRONMENT VARIABLES FIRST
+// =========================
+
 const dotenv = require("dotenv");
+
+dotenv.config();
+
+// =========================
+// IMPORTS
+// =========================
+
+const express = require("express");
 const cors = require("cors");
 
 const connectDB = require("./config/db");
@@ -11,9 +22,26 @@ const orderRoutes = require("./routes/orderRoutes");
 const recommendationRoutes = require("./routes/recommendationRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 
-dotenv.config();
+// =========================
+// TEST GROQ API KEY
+// =========================
+
+console.log(
+  "GROQ API KEY:",
+  process.env.GROQ_API_KEY
+    ? "LOADED"
+    : "NOT LOADED"
+);
+
+// =========================
+// CONNECT DATABASE
+// =========================
 
 connectDB();
+
+// =========================
+// CREATE EXPRESS APP
+// =========================
 
 const app = express();
 
@@ -29,6 +57,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
+
       // Allow requests without origin
       // Example: Postman, curl
       if (!origin) {
@@ -43,6 +72,7 @@ app.use(
         new Error("Not allowed by CORS")
       );
     },
+
     credentials: true,
   })
 );
@@ -57,20 +87,35 @@ app.use(express.json());
 // ROUTES
 // =========================
 
-app.use("/api/auth", authRoutes);
+app.use(
+  "/api/auth",
+  authRoutes
+);
 
-app.use("/api/restaurants", restaurantRoutes);
+app.use(
+  "/api/restaurants",
+  restaurantRoutes
+);
 
-app.use("/api/foods", foodRoutes);
+app.use(
+  "/api/foods",
+  foodRoutes
+);
 
-app.use("/api/orders", orderRoutes);
+app.use(
+  "/api/orders",
+  orderRoutes
+);
 
 app.use(
   "/api/recommendations",
   recommendationRoutes
 );
 
-app.use("/api/ai", aiRoutes);
+app.use(
+  "/api/ai",
+  aiRoutes
+);
 
 // =========================
 // TEST ROUTE
@@ -78,7 +123,8 @@ app.use("/api/ai", aiRoutes);
 
 app.get("/", (req, res) => {
   res.json({
-    message: "SmartBite Backend API is running 🚀",
+    message:
+      "SmartBite Backend API is running 🚀",
   });
 });
 
@@ -86,8 +132,11 @@ app.get("/", (req, res) => {
 // SERVER
 // =========================
 
-const PORT = process.env.PORT || 5000;
+const PORT =
+  process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(
+    `Server running on port ${PORT}`
+  );
 });

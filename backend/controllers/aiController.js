@@ -1,16 +1,16 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const Groq = require("groq-sdk");
 
 const Food = require("../models/Food");
 const Order = require("../models/Order");
 const User = require("../models/User");
 
 // =========================
-// INITIALIZE GEMINI
+// INITIALIZE GROQ
 // =========================
 
-const genAI = new GoogleGenerativeAI(
-  process.env.GEMINI_API_KEY
-);
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 // =========================
 // AI RECOMMENDATION
@@ -31,21 +31,30 @@ const aiRecommend = async (req, res) => {
       });
     }
 
-    console.log("AI Query:", query);
+    // =========================
+    // 2. CHECK GROQ API KEY
+    // =========================
+
+    if (!process.env.GROQ_API_KEY) {
+      console.error(
+        "GROQ_API_KEY is missing"
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Groq API key is not configured on the server",
+      });
+    }
 
     // =========================
-    // 2. GET LOGGED-IN USER
+    // 3. GET LOGGED-IN USER
     // =========================
 
     let user = null;
     let orders = [];
 
     if (req.user?._id) {
-      console.log(
-        "Logged in User ID:",
-        req.user._id.toString()
-      );
-
       user = await User.findById(
         req.user._id
       ).lean();
@@ -58,46 +67,51 @@ const aiRecommend = async (req, res) => {
         user: req.user._id,
       })
         .populate("items.food")
-        .sort({ createdAt: -1 })
+        .sort({
+          createdAt: -1,
+        })
         .limit(20)
         .lean();
-
-      console.log(
-        "Orders Found:",
-        orders.length
-      );
     }
 
     // =========================
-    // 3. CREATE ORDER HISTORY
+    // 4. CREATE ORDER HISTORY
     // =========================
 
     const orderHistory = [];
 
     orders.forEach((order) => {
-      if (!order.items) return;
+      if (!order.items) {
+        return;
+      }
 
       order.items.forEach((item) => {
         if (item.food) {
           orderHistory.push({
-            name: item.food.name,
-            cuisine: item.food.cuisine,
-            category: item.food.category,
-            tags: item.food.tags || [],
-            price: item.food.price,
-            isVeg: item.food.isVeg,
+            name:
+              item.food.name || "",
+
+            cuisine:
+              item.food.cuisine || "",
+
+            category:
+              item.food.category || "",
+
+            tags:
+              item.food.tags || [],
+
+            price:
+              item.food.price || 0,
+
+            isVeg:
+              item.food.isVeg,
           });
         }
       });
     });
 
-    console.log(
-      "Order History Items:",
-      orderHistory.length
-    );
-
     // =========================
-    // 4. GET AVAILABLE FOODS
+    // 5. GET AVAILABLE FOODS
     // =========================
 
     const foods = await Food.find({
@@ -109,66 +123,85 @@ const aiRecommend = async (req, res) => {
       )
       .lean();
 
-    console.log(
-      "Available Foods:",
-      foods.length
-    );
+    // =========================
+    // 6. CHECK FOOD AVAILABILITY
+    // =========================
 
     if (foods.length === 0) {
       return res.status(200).json({
         success: true,
+
         query,
+
         message:
           "Sorry, there are no food items available right now.",
+
         recommendations: [],
       });
     }
 
     // =========================
-    // 5. CREATE FOOD DATA
+    // 7. CREATE FOOD DATA
     // =========================
 
-    const foodData = foods.map((food) => ({
-      id: food._id.toString(),
+    const foodData = foods.map(
+      (food) => ({
+        id:
+          food._id.toString(),
 
-      name: food.name,
+        name:
+          food.name || "",
 
-      description: food.description || "",
+        description:
+          food.description || "",
 
-      price: food.price,
+        price:
+          food.price || 0,
 
-      category: food.category,
+        category:
+          food.category || "",
 
-      cuisine: food.cuisine,
+        cuisine:
+          food.cuisine || "",
 
-      tags: food.tags || [],
+        tags:
+          food.tags || [],
 
-      isVeg: food.isVeg,
+        isVeg:
+          food.isVeg,
 
-      rating: food.rating,
+        rating:
+          food.rating || 0,
 
-      restaurantId:
-        food.restaurant?._id?.toString() || null,
+        restaurantId:
+          food.restaurant?._id
+            ?.toString() || null,
 
-      restaurantName:
-        food.restaurant?.name || "",
+        restaurantName:
+          food.restaurant?.name ||
+          "",
 
-      location:
-        food.restaurant?.location || "",
+        location:
+          food.restaurant?.location ||
+          "",
 
-      deliveryTime:
-        food.restaurant?.deliveryTime || "",
-    }));
+        deliveryTime:
+          food.restaurant
+            ?.deliveryTime || "",
+      })
+    );
 
     // =========================
-    // 6. USER PROFILE
+    // 8. USER PROFILE
     // =========================
 
     const userProfile = user
       ? {
-          name: user.name || "",
+          name:
+            user.name || "",
 
-          location: user.location || "",
+          location:
+            user.location || "",
 
           favoriteCuisines:
             user.favoriteCuisines || [],
@@ -190,34 +223,6 @@ const aiRecommend = async (req, res) => {
 
           healthGoal: "",
         };
-
-    // =========================
-    // 7. CHECK GEMINI API KEY
-    // =========================
-
-    if (!process.env.GEMINI_API_KEY) {
-      console.error(
-        "GEMINI_API_KEY is missing"
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Gemini API key is not configured on the server",
-      });
-    }
-
-    // =========================
-    // 8. INITIALIZE GEMINI MODEL
-    // =========================
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      generationConfig: {
-        temperature: 0.3,
-        responseMimeType: "application/json",
-      },
-    });
 
     // =========================
     // 9. CREATE AI PROMPT
@@ -257,21 +262,38 @@ IMPORTANT RULES:
 25. Do not use Markdown.
 26. Do not use code fences.
 
+VERY IMPORTANT:
+
+- The "id" must exactly match an "id" from AVAILABLE FOOD DATABASE.
+- Do not modify, shorten, or generate IDs.
+- Do not return any ID that is not present in AVAILABLE FOOD DATABASE.
+- If a food does not match the user's request exactly, only recommend it as a fallback.
+- For budget requests, NEVER recommend food above the user's maximum budget when possible.
+- For vegetarian requests, prioritize vegetarian food.
+- For non-vegetarian requests, prioritize non-vegetarian food.
+- Always prioritize the user's current request over order history.
+
 USER REQUEST:
 
 ${query}
 
 USER PROFILE:
 
-${JSON.stringify(userProfile)}
+${JSON.stringify(
+  userProfile
+)}
 
 USER PREVIOUS ORDER HISTORY:
 
-${JSON.stringify(orderHistory)}
+${JSON.stringify(
+  orderHistory
+)}
 
 AVAILABLE FOOD DATABASE:
 
-${JSON.stringify(foodData)}
+${JSON.stringify(
+  foodData
+)}
 
 Return exactly this JSON structure:
 
@@ -287,67 +309,87 @@ Return exactly this JSON structure:
 }
 `;
 
-    console.log(
-      "Sending request to Gemini..."
-    );
-
     // =========================
-    // 10. CALL GEMINI
+    // 10. CALL GROQ AI
     // =========================
 
-    const result =
-      await model.generateContent(prompt);
+    const completion =
+      await groq.chat.completions.create({
+        model:
+          "llama-3.3-70b-versatile",
+
+        messages: [
+          {
+            role: "system",
+
+            content:
+              "You are SmartBite AI, an intelligent food recommendation system. Return only valid JSON. Never invent food IDs.",
+          },
+
+          {
+            role: "user",
+
+            content: prompt,
+          },
+        ],
+
+        temperature: 0.2,
+
+        max_tokens: 2000,
+
+        response_format: {
+          type: "json_object",
+        },
+      });
+
+    // =========================
+    // 11. GET GROQ RESPONSE
+    // =========================
 
     const response =
-      result.response.text();
+      completion
+        .choices?.[0]
+        ?.message
+        ?.content;
 
-    console.log(
-      "Gemini Raw Response:",
-      response
-    );
+    if (!response) {
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Groq returned an empty response",
+      });
+    }
 
     // =========================
-    // 11. PARSE GEMINI RESPONSE
+    // 12. PARSE GROQ RESPONSE
     // =========================
 
     let aiResult;
 
     try {
-      let cleanedResponse =
-        response.trim();
-
-      cleanedResponse =
-        cleanedResponse
-          .replace(/^```json/i, "")
-          .replace(/^```/i, "")
-          .replace(/```$/i, "")
-          .trim();
-
       aiResult =
-        JSON.parse(cleanedResponse);
+        JSON.parse(response);
 
     } catch (parseError) {
-
       console.error(
-        "AI JSON Parse Error:",
+        "Groq JSON Parse Error:",
         parseError.message
-      );
-
-      console.error(
-        "Gemini Response:",
-        response
       );
 
       return res.status(500).json({
         success: false,
+
         message:
-          "AI returned an invalid response",
-        error: parseError.message,
+          "AI returned an invalid JSON response",
+
+        error:
+          parseError.message,
       });
     }
 
     // =========================
-    // 12. VALIDATE AI RESPONSE
+    // 13. VALIDATE AI RESPONSE
     // =========================
 
     if (
@@ -357,22 +399,23 @@ Return exactly this JSON structure:
       )
     ) {
       console.error(
-        "Invalid AI result:",
-        aiResult
+        "Invalid AI result format"
       );
 
       return res.status(500).json({
         success: false,
+
         message:
           "AI returned an invalid recommendation format",
       });
     }
 
     // =========================
-    // 13. CREATE FOOD MAP
+    // 14. CREATE FOOD MAP
     // =========================
 
-    const foodMap = new Map();
+    const foodMap =
+      new Map();
 
     foods.forEach((food) => {
       foodMap.set(
@@ -382,7 +425,7 @@ Return exactly this JSON structure:
     });
 
     // =========================
-    // 14. MAP AI RESULTS
+    // 15. MAP AI RESULTS
     // =========================
 
     const recommendations =
@@ -390,34 +433,42 @@ Return exactly this JSON structure:
         .slice(0, 10)
         .map((item) => {
 
+          // Check ID
           if (!item.id) {
             return null;
           }
 
+          // Find actual food
+          // from database
           const food =
             foodMap.get(
               item.id.toString()
             );
 
-          // Ignore fake or invalid IDs
+          // Ignore invalid IDs
           if (!food) {
-            console.warn(
-              "AI recommended invalid food ID:",
+            console.error(
+              "AI returned invalid food ID:",
               item.id
             );
 
             return null;
           }
 
+          // Return actual
+          // database food
           return {
             ...food,
 
             aiScore:
               Math.min(
                 100,
+
                 Math.max(
                   0,
-                  Number(item.score) || 0
+                  Number(
+                    item.score
+                  ) || 0
                 )
               ),
 
@@ -442,13 +493,8 @@ Return exactly this JSON structure:
         .filter(Boolean);
 
     // =========================
-    // 15. SEND RESPONSE
+    // 16. SEND RESPONSE
     // =========================
-
-    console.log(
-      "Final Recommendations:",
-      recommendations.length
-    );
 
     return res.status(200).json({
       success: true,
@@ -473,7 +519,7 @@ Return exactly this JSON structure:
     );
 
     console.error(
-      "AI RECOMMENDATION ERROR"
+      "GROQ AI RECOMMENDATION ERROR"
     );
 
     console.error(
@@ -482,8 +528,8 @@ Return exactly this JSON structure:
     );
 
     console.error(
-      "Stack:",
-      error.stack
+      "Status:",
+      error.status
     );
 
     console.error(
@@ -496,11 +542,15 @@ Return exactly this JSON structure:
       message:
         "Failed to process AI recommendation",
 
-      // Show actual error for debugging
-      error: error.message,
+      error:
+        error.message,
     });
   }
 };
+
+// =========================
+// EXPORT CONTROLLER
+// =========================
 
 module.exports = {
   aiRecommend,
