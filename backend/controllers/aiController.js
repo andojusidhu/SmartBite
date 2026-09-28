@@ -12,6 +12,9 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+// Updated supported Groq model
+const SMARTBITE_AI_MODEL = "openai/gpt-oss-20b";
+
 // =========================
 // AI RECOMMENDATION
 // =========================
@@ -36,14 +39,11 @@ const aiRecommend = async (req, res) => {
     // =========================
 
     if (!process.env.GROQ_API_KEY) {
-      console.error(
-        "GROQ_API_KEY is missing"
-      );
+      console.error("GROQ_API_KEY is missing");
 
       return res.status(500).json({
         success: false,
-        message:
-          "Groq API key is not configured on the server",
+        message: "Groq API key is not configured on the server",
       });
     }
 
@@ -55,9 +55,7 @@ const aiRecommend = async (req, res) => {
     let orders = [];
 
     if (req.user?._id) {
-      user = await User.findById(
-        req.user._id
-      ).lean();
+      user = await User.findById(req.user._id).lean();
 
       // =========================
       // GET USER ORDER HISTORY
@@ -88,23 +86,17 @@ const aiRecommend = async (req, res) => {
       order.items.forEach((item) => {
         if (item.food) {
           orderHistory.push({
-            name:
-              item.food.name || "",
+            name: item.food.name || "",
 
-            cuisine:
-              item.food.cuisine || "",
+            cuisine: item.food.cuisine || "",
 
-            category:
-              item.food.category || "",
+            category: item.food.category || "",
 
-            tags:
-              item.food.tags || [],
+            tags: item.food.tags || [],
 
-            price:
-              item.food.price || 0,
+            price: item.food.price || 0,
 
-            isVeg:
-              item.food.isVeg,
+            isVeg: item.food.isVeg,
           });
         }
       });
@@ -144,52 +136,37 @@ const aiRecommend = async (req, res) => {
     // 7. CREATE FOOD DATA
     // =========================
 
-    const foodData = foods.map(
-      (food) => ({
-        id:
-          food._id.toString(),
+    const foodData = foods.map((food) => ({
+      id: food._id.toString(),
 
-        name:
-          food.name || "",
+      name: food.name || "",
 
-        description:
-          food.description || "",
+      description: food.description || "",
 
-        price:
-          food.price || 0,
+      price: food.price || 0,
 
-        category:
-          food.category || "",
+      category: food.category || "",
 
-        cuisine:
-          food.cuisine || "",
+      cuisine: food.cuisine || "",
 
-        tags:
-          food.tags || [],
+      tags: food.tags || [],
 
-        isVeg:
-          food.isVeg,
+      isVeg: food.isVeg,
 
-        rating:
-          food.rating || 0,
+      rating: food.rating || 0,
 
-        restaurantId:
-          food.restaurant?._id
-            ?.toString() || null,
+      restaurantId:
+        food.restaurant?._id?.toString() || null,
 
-        restaurantName:
-          food.restaurant?.name ||
-          "",
+      restaurantName:
+        food.restaurant?.name || "",
 
-        location:
-          food.restaurant?.location ||
-          "",
+      location:
+        food.restaurant?.location || "",
 
-        deliveryTime:
-          food.restaurant
-            ?.deliveryTime || "",
-      })
-    );
+      deliveryTime:
+        food.restaurant?.deliveryTime || "",
+    }));
 
     // =========================
     // 8. USER PROFILE
@@ -197,11 +174,9 @@ const aiRecommend = async (req, res) => {
 
     const userProfile = user
       ? {
-          name:
-            user.name || "",
+          name: user.name || "",
 
-          location:
-            user.location || "",
+          location: user.location || "",
 
           favoriteCuisines:
             user.favoriteCuisines || [],
@@ -279,21 +254,15 @@ ${query}
 
 USER PROFILE:
 
-${JSON.stringify(
-  userProfile
-)}
+${JSON.stringify(userProfile)}
 
 USER PREVIOUS ORDER HISTORY:
 
-${JSON.stringify(
-  orderHistory
-)}
+${JSON.stringify(orderHistory)}
 
 AVAILABLE FOOD DATABASE:
 
-${JSON.stringify(
-  foodData
-)}
+${JSON.stringify(foodData)}
 
 Return exactly this JSON structure:
 
@@ -315,8 +284,7 @@ Return exactly this JSON structure:
 
     const completion =
       await groq.chat.completions.create({
-        model:
-          "llama-3.3-70b-versatile",
+        model: SMARTBITE_AI_MODEL,
 
         messages: [
           {
@@ -368,9 +336,7 @@ Return exactly this JSON structure:
     let aiResult;
 
     try {
-      aiResult =
-        JSON.parse(response);
-
+      aiResult = JSON.parse(response);
     } catch (parseError) {
       console.error(
         "Groq JSON Parse Error:",
@@ -383,8 +349,7 @@ Return exactly this JSON structure:
         message:
           "AI returned an invalid JSON response",
 
-        error:
-          parseError.message,
+        error: parseError.message,
       });
     }
 
@@ -414,8 +379,7 @@ Return exactly this JSON structure:
     // 14. CREATE FOOD MAP
     // =========================
 
-    const foodMap =
-      new Map();
+    const foodMap = new Map();
 
     foods.forEach((food) => {
       foodMap.set(
@@ -432,20 +396,22 @@ Return exactly this JSON structure:
       aiResult.recommendations
         .slice(0, 10)
         .map((item) => {
-
           // Check ID
+
           if (!item.id) {
             return null;
           }
 
           // Find actual food
           // from database
+
           const food =
             foodMap.get(
               item.id.toString()
             );
 
           // Ignore invalid IDs
+
           if (!food) {
             console.error(
               "AI returned invalid food ID:",
@@ -457,20 +423,18 @@ Return exactly this JSON structure:
 
           // Return actual
           // database food
+
           return {
             ...food,
 
-            aiScore:
-              Math.min(
-                100,
+            aiScore: Math.min(
+              100,
 
-                Math.max(
-                  0,
-                  Number(
-                    item.score
-                  ) || 0
-                )
-              ),
+              Math.max(
+                0,
+                Number(item.score) || 0
+              )
+            ),
 
             aiReason:
               item.reason ||
@@ -485,8 +449,7 @@ Return exactly this JSON structure:
               null,
 
             deliveryTime:
-              food.restaurant
-                ?.deliveryTime ||
+              food.restaurant?.deliveryTime ||
               "30-40 min",
           };
         })
@@ -509,7 +472,6 @@ Return exactly this JSON structure:
     });
 
   } catch (error) {
-
     // =========================
     // GLOBAL ERROR
     // =========================
