@@ -12,7 +12,7 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-// Updated supported Groq model
+// Current Groq model
 const SMARTBITE_AI_MODEL = "openai/gpt-oss-20b";
 
 // =========================
@@ -87,15 +87,10 @@ const aiRecommend = async (req, res) => {
         if (item.food) {
           orderHistory.push({
             name: item.food.name || "",
-
             cuisine: item.food.cuisine || "",
-
             category: item.food.category || "",
-
             tags: item.food.tags || [],
-
             price: item.food.price || 0,
-
             isVeg: item.food.isVeg,
           });
         }
@@ -122,12 +117,9 @@ const aiRecommend = async (req, res) => {
     if (foods.length === 0) {
       return res.status(200).json({
         success: true,
-
         query,
-
         message:
           "Sorry, there are no food items available right now.",
-
         recommendations: [],
       });
     }
@@ -282,33 +274,151 @@ Return exactly this JSON structure:
     // 10. CALL GROQ AI
     // =========================
 
-    const completion =
-      await groq.chat.completions.create({
-        model: SMARTBITE_AI_MODEL,
+    let completion;
 
-        messages: [
-          {
-            role: "system",
+    try {
+      console.log("================================");
+      console.log("SMARTBITE AI REQUEST");
+      console.log("Model:", SMARTBITE_AI_MODEL);
+      console.log("Query:", query);
+      console.log("Foods available:", foods.length);
+      console.log("================================");
 
-            content:
-              "You are SmartBite AI, an intelligent food recommendation system. Return only valid JSON. Never invent food IDs.",
+      completion =
+        await groq.chat.completions.create({
+          model: SMARTBITE_AI_MODEL,
+
+          messages: [
+            {
+              role: "system",
+
+              content:
+                "You are SmartBite AI, an intelligent food recommendation system. Return only valid JSON. Never invent food IDs.",
+            },
+
+            {
+              role: "user",
+
+              content: prompt,
+            },
+          ],
+
+          temperature: 0.2,
+
+          max_tokens: 2000,
+
+          response_format: {
+            type: "json_object",
           },
+        });
 
-          {
-            role: "user",
+    } catch (groqError) {
+      // =========================
+      // GROQ ERROR DETAILS
+      // =========================
 
-            content: prompt,
-          },
-        ],
+      console.error("================================");
+      console.error("SMARTBITE GROQ ERROR");
+      console.error("Message:", groqError.message);
+      console.error("Status:", groqError.status);
+      console.error("Code:", groqError.code);
+      console.error("Type:", groqError.type);
 
-        temperature: 0.2,
+      if (groqError.error) {
+        console.error(
+          "Groq Error:",
+          JSON.stringify(
+            groqError.error,
+            null,
+            2
+          )
+        );
+      }
 
-        max_tokens: 2000,
+      console.error("Full Error:", groqError);
+      console.error("================================");
 
-        response_format: {
-          type: "json_object",
-        },
+      // =========================
+      // FALLBACK RECOMMENDATION
+      // =========================
+
+      const searchText = query.toLowerCase();
+
+      const matchedFoods = foods.filter((food) => {
+        const searchableText = `
+          ${food.name || ""}
+          ${food.description || ""}
+          ${food.category || ""}
+          ${food.cuisine || ""}
+          ${(food.tags || []).join(" ")}
+        `.toLowerCase();
+
+        return searchableText
+          .split(/\s+/)
+          .some((word) =>
+            searchText.includes(word) &&
+            word.length > 2
+          );
       });
+
+      let fallbackFoods =
+        matchedFoods.length > 0
+          ? matchedFoods
+          : foods;
+
+      // Limit fallback to 10
+      fallbackFoods = fallbackFoods
+        .sort(
+          (a, b) =>
+            (b.rating || 0) -
+            (a.rating || 0)
+        )
+        .slice(0, 10);
+
+      const fallbackRecommendations =
+        fallbackFoods.map((food) => ({
+          ...food,
+
+          aiScore: Math.min(
+            100,
+            Math.max(
+              0,
+              Math.round(
+                (food.rating || 0) * 20
+              )
+            )
+          ),
+
+          aiReason:
+            "Recommended based on your food preferences and available menu items.",
+
+          restaurantName:
+            food.restaurant?.name ||
+            "SmartBite Restaurant",
+
+          restaurantId:
+            food.restaurant?._id ||
+            null,
+
+          deliveryTime:
+            food.restaurant?.deliveryTime ||
+            "30-40 min",
+        }));
+
+      return res.status(200).json({
+        success: true,
+
+        query,
+
+        message:
+          "SmartBite AI is temporarily using personalized food matching.",
+
+        recommendations:
+          fallbackRecommendations,
+
+        aiFallback: true,
+      });
+    }
 
     // =========================
     // 11. GET GROQ RESPONSE
@@ -321,6 +431,10 @@ Return exactly this JSON structure:
         ?.content;
 
     if (!response) {
+      console.error(
+        "Groq returned an empty response"
+      );
+
       return res.status(500).json({
         success: false,
 
@@ -328,6 +442,10 @@ Return exactly this JSON structure:
           "Groq returned an empty response",
       });
     }
+
+    console.log(
+      "Groq response received successfully"
+    );
 
     // =========================
     // 12. PARSE GROQ RESPONSE
@@ -343,13 +461,19 @@ Return exactly this JSON structure:
         parseError.message
       );
 
+      console.error(
+        "Raw Groq Response:",
+        response
+      );
+
       return res.status(500).json({
         success: false,
 
         message:
           "AI returned an invalid JSON response",
 
-        error: parseError.message,
+        error:
+          parseError.message,
       });
     }
 
@@ -364,7 +488,8 @@ Return exactly this JSON structure:
       )
     ) {
       console.error(
-        "Invalid AI result format"
+        "Invalid AI result format:",
+        aiResult
       );
 
       return res.status(500).json({
@@ -396,8 +521,8 @@ Return exactly this JSON structure:
       aiResult.recommendations
         .slice(0, 10)
         .map((item) => {
-          // Check ID
 
+          // Check ID
           if (!item.id) {
             return null;
           }
@@ -472,6 +597,7 @@ Return exactly this JSON structure:
     });
 
   } catch (error) {
+
     // =========================
     // GLOBAL ERROR
     // =========================
@@ -481,7 +607,7 @@ Return exactly this JSON structure:
     );
 
     console.error(
-      "GROQ AI RECOMMENDATION ERROR"
+      "SMARTBITE AI RECOMMENDATION ERROR"
     );
 
     console.error(
@@ -492,6 +618,32 @@ Return exactly this JSON structure:
     console.error(
       "Status:",
       error.status
+    );
+
+    console.error(
+      "Code:",
+      error.code
+    );
+
+    console.error(
+      "Type:",
+      error.type
+    );
+
+    if (error.error) {
+      console.error(
+        "Groq Error:",
+        JSON.stringify(
+          error.error,
+          null,
+          2
+        )
+      );
+    }
+
+    console.error(
+      "Full Error:",
+      error
     );
 
     console.error(
@@ -506,6 +658,12 @@ Return exactly this JSON structure:
 
       error:
         error.message,
+
+      code:
+        error.code || null,
+
+      type:
+        error.type || null,
     });
   }
 };
